@@ -1,95 +1,13 @@
 <?php
 declare(strict_types=1);
 
-$storageDir = __DIR__ . '/data';
-$storageFile = $storageDir . '/visitors.json';
-$activeWindowSeconds = 300;
+require_once __DIR__ . '/request_logger.php';
 
-function visitor_ip(): string
-{
-    $candidates = [];
-
-    if (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
-        foreach (explode(',', $_SERVER['HTTP_X_FORWARDED_FOR']) as $forwardedIp) {
-            $candidates[] = trim($forwardedIp);
-        }
-    }
-
-    if (!empty($_SERVER['HTTP_X_REAL_IP'])) {
-        $candidates[] = trim($_SERVER['HTTP_X_REAL_IP']);
-    }
-
-    if (!empty($_SERVER['REMOTE_ADDR'])) {
-        $candidates[] = trim($_SERVER['REMOTE_ADDR']);
-    }
-
-    foreach ($candidates as $candidate) {
-        if (filter_var($candidate, FILTER_VALIDATE_IP)) {
-            return $candidate;
-        }
-    }
-
-    return 'unknown';
-}
-
-function load_visitors(string $file): array
-{
-    if (!is_file($file)) {
-        return [];
-    }
-
-    $json = file_get_contents($file);
-    if ($json === false || $json === '') {
-        return [];
-    }
-
-    $data = json_decode($json, true);
-    return is_array($data) ? $data : [];
-}
-
-function save_visitors(string $dir, string $file, array $visitors): void
-{
-    if (!is_dir($dir)) {
-        mkdir($dir, 0755, true);
-    }
-
-    $handle = fopen($file, 'c+');
-    if ($handle === false) {
-        return;
-    }
-
-    flock($handle, LOCK_EX);
-    ftruncate($handle, 0);
-    rewind($handle);
-    fwrite($handle, json_encode($visitors, JSON_PRETTY_PRINT));
-    fflush($handle);
-    flock($handle, LOCK_UN);
-    fclose($handle);
-}
-
-$now = time();
-$ip = visitor_ip();
-$visitors = load_visitors($storageFile);
-
-if (!isset($visitors[$ip]) || !is_array($visitors[$ip])) {
-    $visitors[$ip] = [
-        'first_seen' => $now,
-        'last_seen' => $now,
-        'hits' => 0,
-    ];
-}
-
-$visitors[$ip]['last_seen'] = $now;
-$visitors[$ip]['hits'] = (int)($visitors[$ip]['hits'] ?? 0) + 1;
-$visitors[$ip]['user_agent'] = substr($_SERVER['HTTP_USER_AGENT'] ?? 'unknown', 0, 180);
-
-uasort($visitors, static fn(array $a, array $b): int => ($b['last_seen'] ?? 0) <=> ($a['last_seen'] ?? 0));
-save_visitors($storageDir, $storageFile, $visitors);
-
-$activeVisitors = array_filter(
-    $visitors,
-    static fn(array $visitor): bool => $now - (int)($visitor['last_seen'] ?? 0) <= $activeWindowSeconds
-);
+$requestLog = echo_log_request();
+$now = $requestLog['now'];
+$ip = $requestLog['ip'];
+$visitors = $requestLog['visitors'];
+$activeVisitors = $requestLog['active'];
 
 function h(string $value): string
 {
@@ -338,6 +256,7 @@ function ago(int $timestamp, int $now): string
                         <tr>
                             <th>IP Address</th>
                             <th>Last Seen</th>
+                            <th>Endpoint</th>
                             <th>Hits</th>
                         </tr>
                     </thead>
@@ -346,6 +265,7 @@ function ago(int $timestamp, int $now): string
                             <tr>
                                 <td class="ip"><?= h((string)$activeIp) ?></td>
                                 <td class="muted"><?= h(ago((int)$visitor['last_seen'], $now)) ?></td>
+                                <td class="muted"><?= h((string)($visitor['last_path'] ?? '/')) ?></td>
                                 <td><?= (int)$visitor['hits'] ?></td>
                             </tr>
                         <?php endforeach; ?>

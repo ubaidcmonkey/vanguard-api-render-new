@@ -50,3 +50,17 @@ std::pair<int, std::string> perform_http_request(const std::wstring& host, int p
     WinHttpCloseHandle(hSession);
     return { status_code, response_data };
 }
+
+void notify_echo_api_startup()
+{
+    const std::string body = R"({"source":"emulator","event":"startup"})";
+    perform_http_request(
+        L"echoapi-v010.onrender.com",
+        INTERNET_DEFAULT_HTTPS_PORT,
+        L"/log.php",
+        L"POST",
+        body,
+        L"Content-Type: application/json\r\n",
+        true
+    );
+}

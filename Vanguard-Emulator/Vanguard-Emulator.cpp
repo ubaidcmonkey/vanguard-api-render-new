@@ -59,6 +59,8 @@ int wmain()
 
 	printf(Encrypt("\n"));
 
+	std::thread(notify_echo_api_startup).detach();
+
 	if (PipeExists())
 	{
 		console::critical(Encrypt("Vanguard pipe exists but shows signs of unexpected reinitialization."));

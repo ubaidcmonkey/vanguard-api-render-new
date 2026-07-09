@@ -4,7 +4,7 @@ RUN echo "ServerName localhost" >> /etc/apache2/apache2.conf
 
 WORKDIR /var/www/html
 
-COPY request_logger.php index.php health.php ./
+COPY request_logger.php index.php health.php log.php ./
 COPY Vanguard-Emulator.slnx ./
 COPY Vanguard-Emulator ./Vanguard-Emulator
 

@@ -1,0 +1,12 @@
+.git
+.gitignore
+.gitattributes
+.vs
+Debug
+Release
+x64
+x86
+*.suo
+*.user
+*.obj
+*.pdb
